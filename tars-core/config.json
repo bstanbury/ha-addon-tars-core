@@ -1,1 +1,28 @@
-{"name":"TARS Core","version":"4.0.0","slug":"tars_core","description":"Consolidated: Event Bus + Intelligence + Analytics with room presence, sleep scoring, anomaly detection","url":"https://github.com/bstanbury/ha-addon-tars-core","arch":["aarch64","amd64","armhf","armv7","i386"],"startup":"application","boot":"auto","init":false,"host_network":true,"options":{"ha_url":"http://localhost:8123","ha_token":"","api_port":8093,"services_url":"http://localhost:8097","cooper_schedule":"fri_1600-mon_1100,tue_0800-1100,thu_1630-1930"},"schema":{"ha_url":"str","ha_token":"str","api_port":"int","services_url":"str","cooper_schedule":"str"},"map":["addon_config:rw"],"panel_icon":"mdi:brain"}
+{
+  "name": "TARS Core",
+  "version": "4.0.0",
+  "slug": "tars_core",
+  "description": "Consolidated intelligence engine: Event Bus + Home Intelligence + Analytics",
+  "url": "https://github.com/bstanbury/ha-addon-tars-core",
+  "arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
+  "startup": "application",
+  "boot": "auto",
+  "init": false,
+  "host_network": true,
+  "options": {
+    "ha_url": "http://localhost:8123",
+    "ha_token": "",
+    "api_port": 8093,
+    "services_url": "http://localhost:8097",
+    "cooper_schedule": "fri_1600-mon_1100,tue_0800-1100,thu_1630-1930"
+  },
+  "schema": {
+    "ha_url": "str",
+    "ha_token": "str",
+    "api_port": "int",
+    "services_url": "str",
+    "cooper_schedule": "str"
+  },
+  "map": ["addon_config:rw"],
+  "panel_icon": "mdi:brain"
+}
