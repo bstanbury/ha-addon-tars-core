@@ -1,51 +1,117 @@
 # TARS Core v4.0.0
 
-Consolidated Home Assistant add-on — replaces v3 Event Bus, Intelligence, and Analytics add-ons with a single service on port **8093**.
+Consolidated Home Assistant add-on. Replaces three separate add-ons (Event Bus v3, Home Intelligence v3, Home Analytics v3) with a single Flask app on port **8093**.
 
-## What's New in v4
+## What's inside
 
-- **Room Presence** (`GET /presence`) — dict of rooms with occupied/last_motion from HA motion sensors
-- **Sleep Scoring** (`GET /analytics/sleep/last`) — A–F grade from overnight CO₂, temperature, and humidity
-- **Dashboard** (`GET /dashboard`) — master JSON: mode, presence, weather, anomalies, battery alerts, sleep score, Cooper status
-- **Anomaly Detection** (`GET /anomalies`) — entities firing >20 events/min, doors open with no one home
-- **Predictive Wake** (`GET /predictions`) — tracks bedroom motion times, calculates average wake window
-- **Weather-Reactive** — rainy conditions trigger cozy mood (lights + music) automatically
-- **Decision Audit** — every `decision_log` entry includes a `why` field
+| Module | Origin | Role |
+|--------|--------|------|
+| Event Bus | ha-addon-event-bus | HA WebSocket → SSE stream, pattern detection |
+| Intelligence | ha-addon-home-intelligence | Context engine, decisions, mode state machine |
+| Analytics | ha-addon-home-analytics | Daily stats, sleep scoring, energy tracking |
+
+## v4.0 new features
+
+1. **Room Presence Engine** — per-room occupancy from motion sensors. `GET /presence`
+2. **Predictive Scheduling** — learns wake/sleep/arrive/depart patterns. `GET /predictions`
+3. **Energy Dashboard** — Powercalc aggregation + cost at $0.35/kWh. `GET /analytics/energy/cost`
+4. **Sleep Quality Scoring** — A–F grade from overnight CO2/temp/humidity. `GET /analytics/sleep/last`, `/analytics/sleep/trend`
+5. **Weather-Reactive Automation** — blinds + DJ + Hue on weather change. `GET /weather/reactive`
+6. **Anomaly Detection v2** — rate limits, security alerts, temp delta, power anomalies. `GET /anomalies`
+7. **Natural Language Decision Log** — every decision has a human-readable `why`. `GET /log`
+8. **Consolidated Dashboard** — full home status in one call. `GET /dashboard`
+9. **Calendar Integration** — today's events + pre-meeting focus mode. `GET /calendar/today`
+10. **Suggestion Feedback** — adaptive learning from accept/dismiss. `POST /suggestion/<id>/accept|dismiss`
+
+## Route reference
+
+```
+# Event Bus
+GET /events/stream          SSE stream (for DJ, Hue, external subscribers)
+GET /events/recent          Recent events (?significant=true to filter)
+GET /events/stats           Counts by domain, pattern stats
+GET /bedroom-motion-age     Seconds since last bedroom motion
+GET /patterns               Learned event sequences
+GET /anomalies              All anomalies (rate + v2 cross-entity)
+
+# Intelligence
+GET  /                      Version + current mode
+GET  /health                Service health check
+GET  /context               Full home context snapshot
+GET  /decide                Context + decision recommendations (dry run)
+GET  /mode                  Current mode + history
+GET  /learned               Adaptive rules + suppressed actions
+GET  /cooper                Cooper status + schedule
+GET  /insights              Actionable tips
+GET  /log                   Decision log with 'why' strings
+GET  /proactive             Proactive suggestions (CO2, golden hour, sleep recovery)
+GET  /presence              Room-level occupancy
+GET  /predictions           Predicted wake/sleep/arrive/depart times
+GET  /weather/reactive      Current weather-reactive state
+GET  /dashboard             FULL home status — one call
+GET  /calendar/today        Today's calendar events + focus mode flag
+POST /arrive                Run arrival sequence
+POST /depart                Run departure sequence
+POST /mood/<mood>           Set mood (chill/focus/party/sleep/rainy/movie/morning/energetic/romantic)
+POST /cooper/here           Force Cooper mode on
+POST /cooper/gone           Force Cooper mode off
+POST /suggestion/<id>/dismiss   Dismiss proactive suggestion
+POST /suggestion/<id>/accept    Accept proactive suggestion
+
+# Analytics
+GET /analytics/daily        Per-day stats (default 30 days)
+GET /analytics/sleep        Last night's sleep data
+GET /analytics/sleep/last   Most recent sleep score
+GET /analytics/sleep/trend  Sleep trend (default 14 days)
+GET /analytics/energy       Current Powercalc snapshot
+GET /analytics/energy/cost  Today/weekly/monthly cost breakdown
+GET /analytics/trends       Monthly aggregates
+GET /analytics/health       HA entity health check
+```
 
 ## Architecture
 
-Single Flask app, three logical modules in `server.py`:
-
-| Module | Responsibility |
-|---|---|
-| **Event Bus** | HA WebSocket subscriber, SSE stream, pattern learning |
-| **Intelligence** | Context engine, mode state machine, Cooper-aware decisions |
-| **Analytics** | Climate history, sleep scoring, presence stats, device health |
-
-## Routes
-
-### Event Bus
-`GET /events/stream` (SSE) · `/events/recent` · `/patterns`
-
-### Intelligence
-`GET /` · `/health` · `/context` · `/mode` · `/learned` · `/cooper` · `/insights` · `/log` · `/proactive` · `/presence` · `/dashboard` · `/predictions` · `/anomalies`  
-`POST /arrive` · `/depart` · `/mood/<mood>` · `/cooper/here` · `/cooper/gone`
-
-### Analytics
-`GET /analytics/daily` · `/analytics/sleep/last` · `/analytics/energy` · `/analytics/health`
+```
+┌────────────────────────────────────────┐
+│           TARS Core :8093              │
+│                                        │
+│  ┌──────────┐  ┌───────────┐  ┌──────┐│
+│  │Event Bus │  │Intelligence│  │Analyt││
+│  │  module  ├──►  module   ├──► module││
+│  └────┬─────┘  └────┬──────┘  └──────┘│
+│       │              │                 │
+└───────┼──────────────┼─────────────────┘
+        │              │
+    WS conn       SERVICES_URL
+   (single)      :8097 (DJ/Hue/
+   to HA         SwitchBot/Vacuum)
+```
 
 ## Configuration
 
 | Option | Default | Description |
-|---|---|---|
+|--------|---------|-------------|
 | `ha_url` | `http://localhost:8123` | Home Assistant URL |
-| `ha_token` | _(required)_ | Long-lived access token |
+| `ha_token` | *(required)* | Long-lived access token |
 | `api_port` | `8093` | Port to listen on |
-| `services_url` | `http://localhost:8097` | TARS Services (Spotify DJ) URL |
-| `cooper_schedule` | `fri_1600-mon_1100,...` | Cooper visit schedule |
+| `services_url` | `http://localhost:8097` | TARS Services URL (DJ/Hue/etc) |
+| `cooper_schedule` | `fri_1600-mon_1100,...` | Cooper presence schedule |
 
-## Safety
+## Data files
 
-- Audio is **never** sent to bedroom entities without confirming `binary_sensor.bedroom_motion`
-- Silent hours (10pm–8am) suppress audio, fall back to push notifications
-- All Echo device access is gated through the Echo entity list
+| File | Contents |
+|------|----------|
+| `/data/intelligence_v2.json` | Mode, adaptive rules |
+| `/data/patterns.json` | Learned event sequences |
+| `/data/stats_db.json` | Daily stats (365-day window) |
+| `/data/sleep_scores.json` | Sleep scores by date |
+| `/data/predictions.json` | Wake/sleep/arrive/depart history |
+
+## Migrating from v3
+
+Stop these add-ons (data is preserved in `/data/`):
+- `ha-addon-event-bus` (was :8092)
+- `ha-addon-home-intelligence` (was :8093 — same port, drop-in)
+- `ha-addon-home-analytics` (was :8095)
+
+Update any `rest_command` or `sensor` configs pointing to :8092 or :8095 to use :8093 with new route paths.
