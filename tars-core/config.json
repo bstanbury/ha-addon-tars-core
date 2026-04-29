@@ -1,8 +1,8 @@
 {
   "name": "TARS Core",
-  "version": "4.0.0",
+  "version": "5.1.0",
   "slug": "tars_core",
-  "description": "Consolidated intelligence engine: Event Bus + Home Intelligence + Analytics",
+  "description": "v5.1: Intelligence engine + SQLite event store + HTML dashboard + typed config + Ring Alarm",
   "url": "https://github.com/bstanbury/ha-addon-tars-core",
   "arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
   "startup": "application",
