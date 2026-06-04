@@ -86,6 +86,7 @@ SVC = ServicesClient(SERVICES_URL)
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger('tars-core')
+STARTUP_TIME = time.time()  # boot guard: ignore rehydration presence events
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SHARED STATE
@@ -1063,7 +1064,7 @@ def route_event(ev):
     sig = False; reason = ''
     if eid == 'binary_sensor.iphone_presence' and old != new:
         sig = True; reason = f'Presence: {old}→{new}'
-        if new == 'on':
+        if new == 'on' and (time.time() - STARTUP_TIME) > 120:  # ignore rehydration within 2min of boot
             record_arrive_event()
             threading.Thread(target=arrive_sequence, daemon=True).start()
         else:
@@ -1401,7 +1402,6 @@ def intel_handle_event(ev):
     # TV on → movie mode
     if ('75_the_frame' in eid or 'frame' in eid) and 'media_player' in eid:
         if new in ('on', 'playing') and not is_silent_hours():
-            svc_post('/dj/play', {'mood': 'chill'})
             log_decision('event', [{'action': 'movie_mode', 'reason': 'TV turned on'}],
                          source='event_bus',
                          why=f'Movie mode: TV on at {datetime.now().strftime("%H:%M")}, mode={home_mode}')
@@ -1469,11 +1469,8 @@ def decide(ctx):
     if home and period == 'evening' and sleep_score < 70:
         decisions.append({'action': 'music_mood', 'value': 'chill',
                           'reason': f'Low sleep score ({sleep_score}) + evening'})
-        decisions.append({'action': 'hue_ambient', 'value': 'candlelight',
-                          'reason': 'Warm lighting for recovery'})
     if home and weather in ('rainy', 'pouring'):
         decisions.append({'action': 'music_mood', 'value': 'rainy', 'reason': 'Rain detected'})
-        decisions.append({'action': 'hue_ambient', 'value': 'candlelight', 'reason': 'Cozy rain'})
     if cooper:
         decisions.append({'action': 'spotify_kids', 'value': True, 'reason': 'Cooper visiting'})
         decisions.append({'action': 'skip_vacuum', 'value': True, 'reason': 'No vacuum with Cooper'})
