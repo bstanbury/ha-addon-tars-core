@@ -1520,6 +1520,15 @@ def arrive_sequence():
         logger.info(f'🌡️ Thermostat → {comfort_temp}°F (comfort, cooper={is_cooper_here()})')
     except Exception as e:
         logger.error(f'thermostat on arrival: {e}')
+    # Guard: if TV is on, skip music/decisions — user is watching, not arriving
+    tv_entities = ['media_player.75_the_frame_3', 'media_player.75_the_frame_2', 'media_player.hub_75_the_frame']
+    tv_on = any(ha_get(f'/states/{e}') and ha_get(f'/states/{e}').get('state') in ('on', 'playing') for e in tv_entities)
+    if tv_on:
+        logger.info('arrive_sequence: TV is on — skipping music/decisions (user watching TV, not arriving)')
+        log_decision('arrival', [{'action': 'tv_guard_skip', 'reason': 'TV on during arrival sequence'}],
+                     source='event_bus', why='Arrival suppressed — TV was on, likely HA restart rehydration not genuine arrival')
+        return
+
     if is_silent_hours() and not is_bedroom_safe():
         safe_notify('🏠 Welcome Home', f'Arrived (quiet mode, alarm off, thermostat {comfort_temp}°F)')
         log_decision('arrival', [
