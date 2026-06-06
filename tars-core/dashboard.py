@@ -175,7 +175,7 @@ a:hover { text-decoration: underline; }
 </div>
 
 <div class="footer">
-  TARS Core v5.1.0 · Auto-refresh 15s · Endpoints: <a href="/health">health</a> ·
+  TARS Core v5.0.0 · Auto-refresh 15s · Endpoints: <a href="/health">health</a> ·
   <a href="/dashboard">json</a> · <a href="/log?format=digest&hours=24">digest</a>
 </div>
 </body>
@@ -195,7 +195,7 @@ def render_dashboard(context: dict) -> str:
     h = DASHBOARD_HTML
 
     # Header
-    h = h.replace('__VERSION__', context.get('version', '5.1.0'))
+    h = h.replace('__VERSION__', context.get('version', '5.0.0'))
     h = h.replace('__TIMESTAMP__', datetime.now().strftime('%H:%M:%S %Z'))
 
     # System
